@@ -1,0 +1,239 @@
+<#
+=========================================================
+ FULL DATA PIPELINE AUTOMATION SCRIPT
+ Covers:
+ - Pipeline & object handling
+ - File operations
+ - Variables & structures
+ - Control flow
+ - Error handling
+ - Logging
+ - SQL + Python + API integration
+ - Parameterization
+ - Debugging & monitoring
+=========================================================
+#>
+
+param(
+    [string]$ConfigPath = "C:\Pipeline\config.json",
+    [string]$Environment = "dev",
+    [switch]$VerboseMode
+)
+
+# ==============================
+# INITIALIZATION
+# ==============================
+
+if ($VerboseMode) { $VerbosePreference = "Continue" }
+
+# Load config
+try {
+    $config = Get-Content $ConfigPath | ConvertFrom-Json
+}
+catch {
+    Write-Error "Failed to load config file"
+    exit 1
+}
+
+$logFile = $config.paths.log_file
+
+# ==============================
+# LOGGING FUNCTION
+# ==============================
+
+function Write-Log {
+    param(
+        [string]$Message,
+        [string]$Level = "INFO"
+    )
+
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $logEntry = "$timestamp [$Level] [$Environment] $Message"
+
+    Write-Output $logEntry
+    $logEntry | Out-File $logFile -Append
+}
+
+# ==============================
+# ERROR HANDLING WRAPPER
+# ==============================
+
+function Execute-Step {
+    param(
+        [string]$StepName,
+        [scriptblock]$Action
+    )
+
+    try {
+        Write-Log "START: $StepName"
+        & $Action
+        Write-Log "SUCCESS: $StepName"
+    }
+    catch {
+        Write-Log "FAIL: $StepName - $_" "ERROR"
+        throw
+    }
+}
+
+# ==============================
+# FILE OPERATIONS
+# ==============================
+
+function Archive-Files {
+    param(
+        [string]$Source,
+        [string]$ArchivePath
+    )
+
+    $date = Get-Date -Format "yyyyMMdd"
+
+    Get-ChildItem $Source -File | ForEach-Object {
+        $dest = Join-Path $ArchivePath "$($_.BaseName)_$date$($_.Extension)"
+        Move-Item $_.FullName $dest -Force
+    }
+}
+
+# ==============================
+# SQL OPERATIONS
+# ==============================
+
+function Run-Sql {
+    param(
+        [string]$Query
+    )
+
+    Invoke-Sqlcmd `
+        -ServerInstance $config.sql.server `
+        -Database $config.sql.database `
+        -Query $Query `
+        -ErrorAction Stop
+}
+
+# ==============================
+# PYTHON EXECUTION
+# ==============================
+
+function Run-Python {
+    param(
+        [string]$Script
+    )
+
+    & $config.paths.python_exe $Script
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "Python script failed with exit code $LASTEXITCODE"
+    }
+}
+
+# ==============================
+# API CALL (POWER BI / GENERIC)
+# ==============================
+
+function Invoke-API {
+    param(
+        [string]$Uri,
+        [hashtable]$Headers
+    )
+
+    Invoke-RestMethod -Uri $Uri -Method Post -Headers $Headers
+}
+
+# ==============================
+# DATA VALIDATION
+# ==============================
+
+function Validate-InputData {
+    param(
+        [string]$Path
+    )
+
+    $files = Get-ChildItem $Path -Filter *.csv
+
+    if ($files.Count -eq 0) {
+        throw "No input files found"
+    }
+
+    Write-Verbose "Found $($files.Count) files"
+}
+
+# ==============================
+# MAIN PIPELINE
+# ==============================
+
+try {
+    Write-Log "PIPELINE STARTED"
+
+    # STEP 1: Validate Input
+    Execute-Step "Validate Input Data" {
+        Validate-InputData -Path $config.paths.input_folder
+    }
+
+    # STEP 2: Load Data to SQL
+    if ($config.steps.load_sql) {
+        Execute-Step "Load Data to SQL" {
+            Get-ChildItem $config.paths.input_folder -Filter *.csv |
+            ForEach-Object {
+                $query = "BULK INSERT raw_data FROM '$($_.FullName)' WITH (FIRSTROW = 2)"
+                Run-Sql -Query $query
+            }
+        }
+    }
+
+    # STEP 3: SQL Transformation
+    if ($config.steps.run_sql) {
+        Execute-Step "Run SQL Transformation" {
+            Run-Sql -Query $config.sql.transform_query
+        }
+    }
+
+    # STEP 4: Python Analysis
+    if ($config.steps.run_python) {
+        Execute-Step "Run Python Analysis" {
+            Run-Python -Script $config.paths.python_script
+        }
+    }
+
+    # STEP 5: API / Power BI Refresh
+    if ($config.steps.refresh_api) {
+        Execute-Step "Refresh Power BI Dataset" {
+
+            $tokenBody = @{
+                grant_type    = "client_credentials"
+                scope         = "https://analysis.windows.net/powerbi/api/.default"
+                client_id     = $config.api.client_id
+                client_secret = $config.api.client_secret
+            }
+
+            $token = Invoke-RestMethod `
+                -Uri "https://login.microsoftonline.com/$($config.api.tenant_id)/oauth2/v2.0/token" `
+                -Method Post `
+                -Body $tokenBody
+
+            $headers = @{
+                Authorization = "Bearer $($token.access_token)"
+            }
+
+            Invoke-API -Uri $config.api.refresh_url -Headers $headers
+        }
+    }
+
+    # STEP 6: Archive Files
+    Execute-Step "Archive Files" {
+        Archive-Files `
+            -Source $config.paths.input_folder `
+            -ArchivePath $config.paths.archive_folder
+    }
+
+    Write-Log "PIPELINE COMPLETED SUCCESSFULLY" "SUCCESS"
+}
+catch {
+    Write-Log "PIPELINE FAILED: $_" "CRITICAL"
+    exit 1
+}
+
+# ==============================
+# DEBUGGING / TRANSCRIPT
+# ==============================
+
+Start-Transcript -Path "$($config.paths.log_folder)\debug.log" -Append
+Stop-Transcript
