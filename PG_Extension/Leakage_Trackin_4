@@ -9,6 +9,13 @@ function Track-Lineage {
 
     $record = @{
         timestamp = Get-Date
+
+
+# Usage 
+Track-Lineage `
+    -Source "source_table" `
+    -Target "raw_table" `
+    -Operation "incremental_load"
         source    = $Source
         target    = $Target
         operation = $Operation
