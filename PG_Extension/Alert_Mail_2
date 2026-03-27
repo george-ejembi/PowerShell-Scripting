@@ -1,0 +1,10 @@
+function Send-EmailAlert {
+    param($Subject, $Body)
+
+    Send-MailMessage `
+        -From "pipeline@company.com" `
+        -To "team@company.com" `
+        -Subject $Subject `
+        -Body $Body `
+        -SmtpServer "smtp.server.com"
+}
