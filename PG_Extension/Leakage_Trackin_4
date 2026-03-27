@@ -1,0 +1,18 @@
+# Helps me track from source to transformation to output
+
+function Track-Lineage {
+    param(
+        $Source,
+        $Target,
+        $Operation
+    )
+
+    $record = @{
+        timestamp = Get-Date
+        source    = $Source
+        target    = $Target
+        operation = $Operation
+    } | ConvertTo-Json
+
+    $record | Out-File "C:\Pipeline\logs\lineage.json" -Append
+}
