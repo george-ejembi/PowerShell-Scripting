@@ -1,0 +1,15 @@
+          GitHub (CI/CD)
+                ↓
+     :contentReference[oaicite:4]{index=4}
+                ↓
+     :contentReference[oaicite:5]{index=5}
+                ↓
+     PowerShell Orchestrator
+      ↓        ↓         ↓
+   SQL       Python     API
+      ↓        ↓
+   Validation + Lineage
+      ↓
+ Distributed Logging (ELK / Azure Monitor)
+      ↓
+ Alerts (Slack / Email)
