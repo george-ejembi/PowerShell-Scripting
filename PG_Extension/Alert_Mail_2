@@ -21,5 +21,17 @@ function Send-SlackAlert {
         -Uri $env:SLACK_WEBHOOK_URL `
         -Method Post `
         -Body $payload `
+
+
+# Integrate into my pipeline
+
+catch {
+    Write-Log "PIPELINE FAILED: $_" "CRITICAL"
+
+    Send-EmailAlert -Subject "Pipeline Failure" -Body $_
+    Send-SlackAlert -Message "Pipeline failed: $_"
+
+    exit 1
+}
         -ContentType "application/json"
 }
