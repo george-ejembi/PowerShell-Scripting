@@ -1,0 +1,11 @@
+Local Dev → GitHub → CI/CD (GitHub Actions)
+                ↓
+         Azure Automation (Runbooks)
+                ↓
+     PowerShell Orchestrator
+        ↙        ↓        ↘
+   SQL Engine  Python   Power BI API
+        ↓
+   Data Quality Layer
+        ↓
+   Logging + Monitoring
