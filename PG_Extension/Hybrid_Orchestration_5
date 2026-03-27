@@ -1,0 +1,20 @@
+# Airflow Integration
+Trigger PowerShell from DAG:
+
+from airflow.operators.bash import BashOperator
+
+task = BashOperator(
+    task_id="run_powershell_pipeline",
+    bash_command="powershell.exe -File C:/Pipeline/pipeline.ps1"
+)
+
+# Prefect Ingegration
+
+from prefect import flow
+import os
+
+@flow
+def pipeline():
+    os.system("powershell.exe -File C:/Pipeline/pipeline.ps1")
+
+pipeline()
