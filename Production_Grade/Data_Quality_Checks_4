@@ -1,0 +1,47 @@
+# Validates row count
+
+function Validate-RowCount {
+    param($Table)
+
+    $count = Invoke-Sqlcmd -Query "SELECT COUNT(*) AS cnt FROM $Table"
+
+    if ($count.cnt -eq 0) {
+        throw "Data quality failure: $Table is empty"
+    }
+}
+
+# Validates schema
+function Validate-Schema {
+    param(
+        [string]$Table,
+        [string[]]$ExpectedColumns
+    )
+
+    $columns = Invoke-Sqlcmd -Query "
+        SELECT COLUMN_NAME 
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_NAME = '$Table'
+    "
+
+    $actual = $columns.COLUMN_NAME
+
+    foreach ($col in $ExpectedColumns) {
+        if ($col -notin $actual) {
+            throw "Missing column: $col"
+        }
+    }
+}
+
+# Null checks
+
+function Validate-Nulls {
+    param($Table, $Column)
+
+    $result = Invoke-Sqlcmd -Query "
+        SELECT COUNT(*) AS cnt FROM $Table WHERE $Column IS NULL
+    "
+
+    if ($result.cnt -gt 0) {
+        throw "Null values found in $Column"
+    }
+}
