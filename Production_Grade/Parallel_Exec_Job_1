@@ -1,0 +1,17 @@
+# Parallel execution of independent tasks
+$jobs = @()
+
+$jobs += Start-Job -ScriptBlock {
+    Invoke-Sqlcmd -Query "EXEC process_sales"
+}
+
+$jobs += Start-Job -ScriptBlock {
+    & python "C:\Pipeline\python\analysis.py"
+}
+
+$jobs += Start-Job -ScriptBlock {
+    Invoke-RestMethod -Uri "https://api.example.com/refresh" -Method Post
+}
+
+# Wait and collect results
+$jobs | ForEach-Object { Receive-Job -Job $_ -Wait -AutoRemoveJob }
