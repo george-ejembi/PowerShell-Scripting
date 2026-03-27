@@ -1,0 +1,35 @@
+# For ELK my stack
+function Send-LogToELK {
+    param($Message, $Level)
+
+    $log = @{
+        timestamp = (Get-Date)
+        level     = $Level
+        message   = $Message
+        app       = "PowerShellPipeline"
+    } | ConvertTo-Json
+
+    Invoke-RestMethod `
+        -Uri "http://elk-server:9200/logs/_doc" `
+        -Method Post `
+        -Body $log `
+        -ContentType "application/json"
+}
+
+
+# Azure Monitoring
+function Send-LogToAzureMonitor {
+    param($Message, $Level)
+
+    $body = @{
+        TimeGenerated = (Get-Date)
+        Level         = $Level
+        Message       = $Message
+    } | ConvertTo-Json
+
+    Invoke-RestMethod `
+        -Uri $config.azure.log_endpoint `
+        -Method Post `
+        -Body $body
+}
+
