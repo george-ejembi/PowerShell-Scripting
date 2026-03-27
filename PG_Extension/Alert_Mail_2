@@ -8,3 +8,18 @@ function Send-EmailAlert {
         -Body $Body `
         -SmtpServer "smtp.server.com"
 }
+
+
+## For Slack Alert (Just In case)
+
+function Send-SlackAlert {
+    param($Message)
+
+    $payload = @{ text = $Message } | ConvertTo-Json
+
+    Invoke-RestMethod `
+        -Uri $env:SLACK_WEBHOOK_URL `
+        -Method Post `
+        -Body $payload `
+        -ContentType "application/json"
+}
