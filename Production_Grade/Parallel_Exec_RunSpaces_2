@@ -1,0 +1,29 @@
+# (faster than jobs for high volume)
+$pool = [runspacefactory]::CreateRunspacePool(1, 5)
+$pool.Open()
+
+$tasks = @()
+
+foreach ($file in Get-ChildItem "C:\Data\input\*.csv") {
+    $ps = [powershell]::Create()
+    $ps.RunspacePool = $pool
+
+    $ps.AddScript({
+        param($filePath)
+        Invoke-Sqlcmd -Query "BULK INSERT raw_data FROM '$filePath'"
+    }).AddArgument($file.FullName)
+
+    $tasks += [pscustomobject]@{
+        Pipe = $ps
+        Status = $ps.BeginInvoke()
+    }
+}
+
+# Wait for completion
+$tasks | ForEach-Object {
+    $_.Pipe.EndInvoke($_.Status)
+    $_.Pipe.Dispose()
+}
+
+$pool.Close()
+$pool.Dispose()
