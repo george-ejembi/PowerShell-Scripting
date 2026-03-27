@@ -1,0 +1,25 @@
+function Invoke-WithRetry {
+    param(
+        [scriptblock]$ScriptBlock,
+        [int]$MaxRetries = 3,
+        [int]$InitialDelaySeconds = 2
+    )
+
+    $attempt = 0
+
+    while ($attempt -lt $MaxRetries) {
+        try {
+            return & $ScriptBlock
+        }
+        catch {
+            $attempt++
+            if ($attempt -ge $MaxRetries) {
+                throw "Max retries reached: $_"
+            }
+
+            $delay = [math]::Pow(2, $attempt) * $InitialDelaySeconds
+            Write-Log "Retry $attempt in $delay seconds..." "WARN"
+            Start-Sleep -Seconds $delay
+        }
+    }
+}
