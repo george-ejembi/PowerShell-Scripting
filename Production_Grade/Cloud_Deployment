@@ -1,0 +1,10 @@
+Steps:
+1. Create Automation Account
+Azure Portal → Automation Accounts → Create
+2. Upload Script
+Go to Runbooks
+Import your pipeline.ps1
+3. Configure Credentials
+Use Credential Assets instead of plain text
+4. Schedule Runbook
+Link to schedule (daily/hourly)
