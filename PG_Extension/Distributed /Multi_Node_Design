@@ -1,0 +1,12 @@
+Process Ops
+
+Node 1 → Data Ingestion
+Node 2 → SQL Processing
+Node 3 → Python ML
+Node 4 → Reporting/API
+
+# Remote Execution
+
+Invoke-Command -ComputerName "Node2" -ScriptBlock {
+    Invoke-Sqlcmd -Query "EXEC process_data"
+}
